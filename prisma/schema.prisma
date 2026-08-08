@@ -42,6 +42,9 @@ model PlatformIdentity {
   key         String  @unique
   description String?
 
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
   primaryColor   String?
   secondaryColor String?
   accentColor    String?
@@ -50,10 +53,15 @@ model PlatformIdentity {
   mascotUrl     String?
   backgroundUrl String?
 
-  greeting        String?
-  terminologyJson String?
+  greeting String?
 
-  isActive Boolean @default(true)
+  terminologyJson String?
+  dashboardJson   String?
+  widgetsJson     String?
+  recognitionJson String?
+  animationJson   String?
+
+  version Int @default(1)
 
   centers PlatformCenter[]
 
