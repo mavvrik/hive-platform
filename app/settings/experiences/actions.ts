@@ -12,16 +12,15 @@ export async function toggleExperienceStatus(
     throw new Error("Experience ID is required.");
   }
 
-  const experience =
-    await prisma.platformIdentity.findUnique({
-      where: { id },
-    });
+  const experience = await prisma.experience.findUnique({
+    where: { id },
+  });
 
   if (!experience) {
     throw new Error("Experience not found.");
   }
 
-  await prisma.platformIdentity.update({
+  await prisma.experience.update({
     where: { id },
     data: {
       isActive: !experience.isActive,

@@ -6,14 +6,20 @@ import { redirect } from "next/navigation";
 export async function createExperience(
   formData: FormData
 ) {
-  const name = String(formData.get("name") || "").trim();
-  const key = String(formData.get("key") || "")
+  const name = String(
+    formData.get("name") || ""
+  ).trim();
+
+  const key = String(
+    formData.get("key") || ""
+  )
     .trim()
     .toUpperCase();
 
   const description =
-    String(formData.get("description") || "").trim() ||
-    null;
+    String(
+      formData.get("description") || ""
+    ).trim() || null;
 
   if (!name || !key) {
     throw new Error(
@@ -21,7 +27,7 @@ export async function createExperience(
     );
   }
 
-  await prisma.platformIdentity.create({
+  await prisma.experience.create({
     data: {
       name,
       key,

@@ -1,7 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// HIVE Platform Enterprise
+// Enterprise Foundation E1.0.3
 
 generator client {
   provider = "prisma-client"
@@ -12,38 +10,128 @@ datasource db {
   provider = "postgresql"
 }
 
-model PlatformCenter {
-  id String @id @default(cuid())
+// ======================================================
+// ENTERPRISE STRUCTURE
+// ======================================================
 
-  centerNumber String @unique
-  name         String
-  displayName  String
-  slug         String @unique
+model Organization {
+  id          String  @id @default(cuid())
+  name        String
+  key         String  @unique
+  description String?
+  isActive    Boolean @default(true)
 
-  region   String?
-  state    String?
-  country  String  @default("US")
-  timezone String
-
-  isActive Boolean @default(true)
-
-  identityId String?
-  identity   PlatformIdentity? @relation(fields: [identityId], references: [id])
-  people     PlatformPerson[]
+  regions Region[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model PlatformIdentity {
-  id String @id @default(cuid())
+model Region {
+  id          String  @id @default(cuid())
+  name        String
+  key         String
+  description String?
+  isActive    Boolean @default(true)
 
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  centers Center[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model Center {
+  id           String @id @default(cuid())
+  centerNumber String @unique
+  name         String
+  displayName  String
+  slug         String @unique
+
+  // Existing text region column is preserved during migration.
+  regionLegacy String? @map("region")
+
+  state    String?
+  country  String  @default("US")
+  timezone String
+  isActive Boolean @default(true)
+
+  // New enterprise Region relationship.
+  regionId String?
+  region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  // Existing identityId database column is preserved.
+  experienceId String?     @map("identityId")
+  experience   Experience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
+
+  homeWorkers Worker[]           @relation("WorkerHomeCenter")
+  assignments WorkerAssignment[]
+  departments Department[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+  @@index([experienceId])
+  @@map("PlatformCenter")
+}
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String
+  key         String
+  description String?
+  isActive    Boolean @default(true)
+
+  centerId String
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Cascade)
+
+  activities WorkerAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([centerId, key])
+  @@index([centerId])
+}
+
+// ======================================================
+// CENTER EXPERIENCE ENGINE
+// ======================================================
+
+model Experience {
+  id          String  @id @default(cuid())
   name        String
   key         String  @unique
   description String?
 
   isActive  Boolean @default(true)
   isDefault Boolean @default(false)
+
+  greeting String?
+  version  Int     @default(1)
+
+  centers Center[]
+
+  branding    ExperienceBranding?
+  terminology ExperienceTerminology[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("PlatformIdentity")
+}
+
+model ExperienceBranding {
+  id String @id @default(cuid())
+
+  experienceId String     @unique @map("identityId")
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
 
   primaryColor   String?
   secondaryColor String?
@@ -53,25 +141,36 @@ model PlatformIdentity {
   mascotUrl     String?
   backgroundUrl String?
 
-  greeting String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  terminologyJson String?
-  dashboardJson   String?
-  widgetsJson     String?
-  recognitionJson String?
-  animationJson   String?
+  @@map("IdentityBranding")
+}
 
-  version Int @default(1)
+model ExperienceTerminology {
+  id String @id @default(cuid())
 
-  centers PlatformCenter[]
+  experienceId String     @map("identityId")
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  termKey      String
+  displayValue String
+  description  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([experienceId, termKey])
+  @@index([experienceId])
+  @@map("IdentityTerminology")
 }
 
-model PlatformPerson {
-  id String @id @default(cuid())
+// ======================================================
+// WORKFORCE
+// ======================================================
 
+model Worker {
+  id          String  @id @default(cuid())
   employeeId  String? @unique
   firstName   String
   lastName    String
@@ -79,87 +178,125 @@ model PlatformPerson {
 
   email    String?
   photoUrl String?
-
   hireDate DateTime?
   isActive Boolean   @default(true)
 
-  roles        PersonRole[]
-  capabilities PersonCapability[]
+  // Preserve the existing centerId column as the worker's
+  // current/home center while assignment history is introduced.
+  homeCenterId String @map("centerId")
+  homeCenter   Center @relation("WorkerHomeCenter", fields: [homeCenterId], references: [id])
+
+  assignments  WorkerAssignment[]
+  roles        WorkerRole[]
+  capabilities WorkerCapability[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([homeCenterId])
+  @@map("PlatformPerson")
+}
+
+// Keeps a worker's center/department history over time.
+model WorkerAssignment {
+  id String @id @default(cuid())
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   centerId String
-  center   PlatformCenter @relation(fields: [centerId], references: [id])
+  center   Center @relation(fields: [centerId], references: [id], onDelete: Restrict)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  startDate DateTime
+  endDate   DateTime?
+  isPrimary Boolean   @default(true)
+  isActive  Boolean   @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([workerId])
+  @@index([centerId])
+  @@index([departmentId])
+  @@index([workerId, startDate])
 }
 
-model PlatformRole {
-  id String @id @default(cuid())
-
+model Role {
+  id          String  @id @default(cuid())
   name        String
   key         String  @unique
   description String?
+  isActive    Boolean @default(true)
 
-  isActive Boolean @default(true)
+  workers WorkerRole[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  people PersonRole[]
+  @@map("PlatformRole")
 }
 
-model PlatformCapability {
-  id String @id @default(cuid())
-
+model Capability {
+  id          String  @id @default(cuid())
   name        String
   key         String  @unique
   description String?
+  isActive    Boolean @default(true)
 
-  isActive Boolean @default(true)
+  workers WorkerCapability[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  people PersonCapability[]
+  @@map("PlatformCapability")
 }
 
-model PersonRole {
+model WorkerRole {
   id String @id @default(cuid())
 
-  personId String
+  workerId String @map("personId")
   roleId   String
 
-  person PlatformPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
-  role   PlatformRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@unique([personId, roleId])
+  @@unique([workerId, roleId])
+  @@map("PersonRole")
 }
 
-model PersonCapability {
+model WorkerCapability {
   id String @id @default(cuid())
 
-  personId     String
+  workerId     String @map("personId")
   capabilityId String
 
-  person     PlatformPerson     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  capability PlatformCapability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  worker     Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@unique([personId, capabilityId])
+  @@unique([workerId, capabilityId])
+  @@map("PersonCapability")
 }
 
-model PlatformPermission {
-  id String @id @default(cuid())
+// ======================================================
+// SECURITY FOUNDATION
+// ======================================================
 
+model Permission {
+  id          String  @id @default(cuid())
   name        String
   key         String  @unique
   description String?
-
-  isActive Boolean @default(true)
+  isActive    Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@map("PlatformPermission")
 }

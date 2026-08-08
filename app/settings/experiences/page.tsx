@@ -3,14 +3,14 @@ import Link from "next/link";
 import { toggleExperienceStatus } from "./actions";
 
 export default async function ExperiencesPage() {
-  const experiences = await prisma.platformIdentity.findMany({
+  const experiences = await prisma.experience.findMany({
     orderBy: {
       name: "asc",
     },
   });
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-white p-8">
+    <main className="min-h-screen bg-neutral-950 p-8 text-white">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -23,7 +23,8 @@ export default async function ExperiencesPage() {
             </h1>
 
             <p className="mt-2 text-neutral-400">
-              Create and manage the experience assigned to each center.
+              Create and manage the interaction experience assigned to each
+              center.
             </p>
           </div>
 
@@ -42,7 +43,7 @@ export default async function ExperiencesPage() {
             </h2>
 
             <p className="mt-2 text-neutral-400">
-              Create your first Center Experience to begin configuring your
+              Create your first Center Experience to begin configuring the
               platform.
             </p>
           </div>
@@ -79,9 +80,7 @@ export default async function ExperiencesPage() {
                             : "text-neutral-500"
                         }`}
                       >
-                        {experience.isActive
-                          ? "Active"
-                          : "Inactive"}
+                        {experience.isActive ? "Active" : "Inactive"}
                       </div>
 
                       <div className="mt-1 text-xs text-neutral-500">
