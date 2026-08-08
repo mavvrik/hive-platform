@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model PlatformCenter {
+  id String @id @default(cuid())
+
+  centerNumber String @unique
+  name         String
+  displayName  String
+  slug         String @unique
+
+  region   String?
+  state    String?
+  country  String  @default("US")
+  timezone String
+
+  isActive Boolean @default(true)
+
+  identityId String?
+  identity   PlatformIdentity? @relation(fields: [identityId], references: [id])
+  people     PlatformPerson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformIdentity {
+  id String @id @default(cuid())
+
+  name        String
+  key         String  @unique
+  description String?
+
+  primaryColor   String?
+  secondaryColor String?
+  accentColor    String?
+
+  logoUrl       String?
+  mascotUrl     String?
+  backgroundUrl String?
+
+  greeting        String?
+  terminologyJson String?
+
+  isActive Boolean @default(true)
+
+  centers PlatformCenter[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformPerson {
+  id String @id @default(cuid())
+
+  employeeId  String? @unique
+  firstName   String
+  lastName    String
+  displayName String
+
+  email    String?
+  photoUrl String?
+
+  hireDate DateTime?
+  isActive Boolean   @default(true)
+
+  roles        PersonRole[]
+  capabilities PersonCapability[]
+
+  centerId String
+  center   PlatformCenter @relation(fields: [centerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformRole {
+  id String @id @default(cuid())
+
+  name        String
+  key         String  @unique
+  description String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  people PersonRole[]
+}
+
+model PlatformCapability {
+  id String @id @default(cuid())
+
+  name        String
+  key         String  @unique
+  description String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  people PersonCapability[]
+}
+
+model PersonRole {
+  id String @id @default(cuid())
+
+  personId String
+  roleId   String
+
+  person PlatformPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
+  role   PlatformRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([personId, roleId])
+}
+
+model PersonCapability {
+  id String @id @default(cuid())
+
+  personId     String
+  capabilityId String
+
+  person     PlatformPerson     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  capability PlatformCapability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([personId, capabilityId])
+}
+
+model PlatformPermission {
+  id String @id @default(cuid())
+
+  name        String
+  key         String  @unique
+  description String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
