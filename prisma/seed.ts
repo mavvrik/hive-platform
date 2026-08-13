@@ -132,7 +132,7 @@ async function main() {
   console.log("✓ Experience:", hiveExperience.name);
 
   // =====================================================
-  // HIVE BRANDING
+  // EXECUTIVE HIVE BRANDING
   // =====================================================
 
   await prisma.experienceBranding.upsert({
@@ -155,40 +155,41 @@ async function main() {
   console.log("✓ Executive HIVE branding");
 
   // =====================================================
-  // HIVE TERMINOLOGY
+  // EXECUTIVE HIVE TERMINOLOGY
   // =====================================================
 
   const terminology = [
-  {
-    termKey: "dashboard",
-    displayValue: "The Executive HIVE",
-    description: "Primary dashboard title",
-  },
-  {
-    termKey: "target",
-    displayValue: "Honey Goal",
-    description: "Experience terminology for performance targets",
-  },
-  {
-    termKey: "recognition",
-    displayValue: "HIVE Recognition",
-    description: "Experience terminology for employee recognition",
-  },
-  {
-    termKey: "team_member",
-    displayValue: "HIVE Member",
-    description: "Experience terminology for center team members",
-  },
-];
-
-await prisma.experienceTerminology.deleteMany({
-  where: {
-    experienceId: hiveExperience.id,
-    termKey: {
-      in: ["platformName", "center", "team"],
+    {
+      termKey: "dashboard",
+      displayValue: "The Executive HIVE",
+      description: "Primary dashboard title",
     },
-  },
-});
+    {
+      termKey: "target",
+      displayValue: "Honey Goal",
+      description: "Experience terminology for performance targets",
+    },
+    {
+      termKey: "recognition",
+      displayValue: "HIVE Recognition",
+      description: "Experience terminology for employee recognition",
+    },
+    {
+      termKey: "team_member",
+      displayValue: "HIVE Member",
+      description: "Experience terminology for center team members",
+    },
+  ];
+
+  // Remove terminology keys used by an earlier seed version.
+  await prisma.experienceTerminology.deleteMany({
+    where: {
+      experienceId: hiveExperience.id,
+      termKey: {
+        in: ["platformName", "center", "team"],
+      },
+    },
+  });
 
   for (const term of terminology) {
     await prisma.experienceTerminology.upsert({
@@ -249,6 +250,47 @@ await prisma.experienceTerminology.deleteMany({
   console.log(
     `✓ Center ${rivieraBeach.centerNumber}: ${rivieraBeach.displayName}`
   );
+
+  // =====================================================
+  // TEST CENTER 999
+  // =====================================================
+
+  const testCenter = await prisma.center.upsert({
+    where: {
+      centerNumber: "999",
+    },
+    update: {
+      name: "Test Center",
+      displayName: "Test Center",
+      slug: "test-center-999",
+      state: "FL",
+      country: "US",
+      timezone: "America/New_York",
+      isActive: true,
+      regionId: region.id,
+      experienceId: standardExperience.id,
+    },
+    create: {
+      centerNumber: "999",
+      name: "Test Center",
+      displayName: "Test Center",
+      slug: "test-center-999",
+      state: "FL",
+      country: "US",
+      timezone: "America/New_York",
+      isActive: true,
+      regionId: region.id,
+      experienceId: standardExperience.id,
+    },
+  });
+
+  console.log(
+    `✓ Center ${testCenter.centerNumber}: ${testCenter.displayName}`
+  );
+
+  // =====================================================
+  // COMPLETE
+  // =====================================================
 
   console.log("");
   console.log("🐝 HIVE Platform enterprise seed complete.");

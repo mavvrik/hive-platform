@@ -1,15 +1,34 @@
-import { getCenterExperience } from "@/app/lib/center-experience";
+import { setActiveCenter } from "@/app/actions/center-context";
+import { getActiveCenter } from "@/app/lib/active-center";
+import { prisma } from "@/app/lib/prisma";
 
 export default async function Home() {
-  const center = await getCenterExperience("115");
+  const center = await getActiveCenter();
+
+  const centers = await prisma.center.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
+      id: true,
+      centerNumber: true,
+      displayName: true,
+    },
+    orderBy: {
+      centerNumber: "asc",
+    },
+  });
 
   if (!center) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-white">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Center Not Found</h1>
+      <main className="flex min-h-screen items-center justify-center bg-neutral-950 p-8 text-white">
+        <div className="max-w-lg text-center">
+          <h1 className="text-3xl font-bold">
+            Center Not Found
+          </h1>
+
           <p className="mt-3 text-neutral-400">
-            The requested center could not be resolved.
+            The active center could not be resolved.
           </p>
         </div>
       </main>
@@ -20,8 +39,8 @@ export default async function Home() {
 
   if (!experience) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-white">
-        <div className="text-center">
+      <main className="flex min-h-screen items-center justify-center bg-neutral-950 p-8 text-white">
+        <div className="max-w-lg text-center">
           <h1 className="text-3xl font-bold">
             No Experience Assigned
           </h1>
@@ -59,6 +78,57 @@ export default async function Home() {
       }}
     >
       <div className="mx-auto max-w-6xl">
+
+        {/* ==================================================
+            ACTIVE CENTER SWITCHER
+        ================================================== */}
+
+        <section className="mb-10 rounded-2xl border border-white/10 bg-black/20 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-400">
+                Enterprise Context
+              </p>
+
+              <p className="mt-1 text-lg font-semibold">
+                Active Center
+              </p>
+            </div>
+
+            <form
+              action={setActiveCenter}
+              className="flex flex-col gap-3 sm:flex-row sm:items-center"
+            >
+              <select
+                name="centerNumber"
+                defaultValue={center.centerNumber}
+                className="rounded-xl border border-white/10 bg-neutral-950 px-4 py-3 text-white"
+              >
+                {centers.map((availableCenter) => (
+                  <option
+                    key={availableCenter.id}
+                    value={availableCenter.centerNumber}
+                  >
+                    {availableCenter.centerNumber} —{" "}
+                    {availableCenter.displayName}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                className="rounded-xl bg-white/10 px-5 py-3 font-semibold transition hover:bg-white/20"
+              >
+                Switch Center
+              </button>
+            </form>
+          </div>
+        </section>
+
+        {/* ==================================================
+            CENTER / EXPERIENCE HEADER
+        ================================================== */}
+
         <div
           className="inline-flex rounded-full px-4 py-2 text-sm font-semibold text-black"
           style={{
@@ -87,7 +157,12 @@ export default async function Home() {
           </p>
         </div>
 
+        {/* ==================================================
+            RUNTIME RESOLUTION DETAILS
+        ================================================== */}
+
         <section className="mt-12 grid gap-5 md:grid-cols-2">
+
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <p className="text-sm text-neutral-400">
               Center
@@ -135,11 +210,33 @@ export default async function Home() {
               {terminology.recognition ?? "Recognition"}
             </p>
           </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-sm text-neutral-400">
+              Team Member Terminology
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold">
+              {terminology.team_member ?? "Team Member"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-sm text-neutral-400">
+              Experience Key
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold">
+              {experience.key}
+            </p>
+          </div>
+
         </section>
 
         <div className="mt-12 border-t border-white/10 pt-6 text-sm text-neutral-500">
-          Runtime Experience Resolution Test
+          HIVE Platform — Active Center Runtime Resolution
         </div>
+
       </div>
     </main>
   );
