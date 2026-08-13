@@ -22,10 +22,10 @@ export async function updateExperience(
   ).trim();
 
   const key = String(
-    formData.get("key") || ""
-  )
-    .trim()
-    .toUpperCase();
+  formData.get("key") || ""
+)
+  .trim()
+  .toLowerCase();
 
   if (!id || !name || !key) {
     throw new Error(

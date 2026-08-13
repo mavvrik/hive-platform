@@ -11,10 +11,10 @@ export async function createExperience(
   ).trim();
 
   const key = String(
-    formData.get("key") || ""
-  )
-    .trim()
-    .toUpperCase();
+  formData.get("key") || ""
+)
+  .trim()
+  .toLowerCase();
 
   const description =
     String(
