@@ -200,9 +200,6 @@ export default async function NewWorkerPage() {
                     value={center.id}
                   >
                     {center.centerNumber} — {center.displayName}
-                    {center.region
-                      ? ` — ${center.region.name}`
-                      : ""}
                   </option>
                 ))}
               </select>
