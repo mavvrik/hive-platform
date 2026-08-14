@@ -23,6 +23,20 @@ function formatDateForInput(
   return value.toISOString().slice(0, 10);
 }
 
+function formatDisplayDate(
+  value: Date | null
+): string {
+  if (!value) {
+    return "Current";
+  }
+
+  return value.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default async function EditWorkerPage({
   params,
 }: PageProps) {
@@ -43,6 +57,32 @@ export default async function EditWorkerPage({
             centerNumber: true,
             displayName: true,
           },
+        },
+        assignments: {
+          include: {
+            center: {
+              select: {
+                id: true,
+                centerNumber: true,
+                displayName: true,
+              },
+            },
+            department: {
+              select: {
+                id: true,
+                name: true,
+                key: true,
+              },
+            },
+          },
+          orderBy: [
+            {
+              isActive: "desc",
+            },
+            {
+              startDate: "desc",
+            },
+          ],
         },
         _count: {
           select: {
@@ -75,7 +115,7 @@ export default async function EditWorkerPage({
 
   return (
     <main className="min-h-screen bg-neutral-950 p-8 text-white">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <Link
@@ -140,9 +180,7 @@ export default async function EditWorkerPage({
                   id="firstName"
                   name="firstName"
                   required
-                  defaultValue={
-                    worker.firstName
-                  }
+                  defaultValue={worker.firstName}
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -159,9 +197,7 @@ export default async function EditWorkerPage({
                   id="lastName"
                   name="lastName"
                   required
-                  defaultValue={
-                    worker.lastName
-                  }
+                  defaultValue={worker.lastName}
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -177,9 +213,7 @@ export default async function EditWorkerPage({
                 <input
                   id="employeeId"
                   name="employeeId"
-                  defaultValue={
-                    worker.employeeId ?? ""
-                  }
+                  defaultValue={worker.employeeId ?? ""}
                   placeholder="Optional"
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
@@ -197,9 +231,7 @@ export default async function EditWorkerPage({
                   id="email"
                   name="email"
                   type="email"
-                  defaultValue={
-                    worker.email ?? ""
-                  }
+                  defaultValue={worker.email ?? ""}
                   placeholder="Optional"
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
@@ -236,9 +268,7 @@ export default async function EditWorkerPage({
                   id="photoUrl"
                   name="photoUrl"
                   type="url"
-                  defaultValue={
-                    worker.photoUrl ?? ""
-                  }
+                  defaultValue={worker.photoUrl ?? ""}
                   placeholder="Optional"
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
@@ -263,9 +293,7 @@ export default async function EditWorkerPage({
                 id="homeCenterId"
                 name="homeCenterId"
                 required
-                defaultValue={
-                  worker.homeCenterId
-                }
+                defaultValue={worker.homeCenterId}
                 className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
               >
                 {centers.map((center) => (
@@ -273,60 +301,16 @@ export default async function EditWorkerPage({
                     key={center.id}
                     value={center.id}
                   >
-                    {center.centerNumber} —{" "}
-                    {center.displayName}
+                    {center.centerNumber} — {center.displayName}
                   </option>
                 ))}
               </select>
 
               <p className="mt-2 text-sm text-neutral-500">
-                Changing Home Center updates the worker&apos;s primary
-                enterprise home. Assignment history is managed separately.
+                Home Center remains separate from operational assignment
+                history.
               </p>
             </div>
-          </section>
-
-          <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-            <h2 className="text-2xl font-semibold">
-              Workforce Relationships
-            </h2>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
-                <p className="text-sm text-neutral-500">
-                  Assignments
-                </p>
-
-                <p className="mt-2 text-3xl font-bold">
-                  {worker._count.assignments}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
-                <p className="text-sm text-neutral-500">
-                  Roles
-                </p>
-
-                <p className="mt-2 text-3xl font-bold">
-                  {worker._count.roles}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
-                <p className="text-sm text-neutral-500">
-                  Capabilities
-                </p>
-
-                <p className="mt-2 text-3xl font-bold">
-                  {worker._count.capabilities}
-                </p>
-              </div>
-            </div>
-
-            <p className="mt-5 text-sm text-neutral-500">
-              These relationships are managed independently so worker identity
-              remains separate from operational assignments and access.
-            </p>
           </section>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
@@ -345,6 +329,166 @@ export default async function EditWorkerPage({
             </button>
           </div>
         </form>
+
+        <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold">
+                Assignment History
+              </h2>
+
+              <p className="mt-2 text-neutral-400">
+                Track center and department relationships over time.
+              </p>
+            </div>
+
+            {worker.isActive && (
+              <Link
+                href={`/settings/workers/${worker.id}/assignments/new`}
+                className="rounded-xl bg-amber-400 px-5 py-3 text-center font-semibold text-black transition hover:bg-amber-300"
+              >
+                + New Assignment
+              </Link>
+            )}
+          </div>
+
+          {worker.assignments.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950 p-8 text-center">
+              <p className="font-semibold">
+                No Assignment History
+              </p>
+
+              <p className="mt-2 text-sm text-neutral-500">
+                This worker has not yet been assigned to an operational
+                department.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 overflow-hidden rounded-xl border border-neutral-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-neutral-950 text-sm text-neutral-400">
+                    <tr>
+                      <th className="px-5 py-4 font-medium">
+                        Center
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Department
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Start
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        End
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Primary
+                      </th>
+
+                      <th className="px-5 py-4 font-medium">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-neutral-800">
+                    {worker.assignments.map((assignment) => (
+                      <tr key={assignment.id}>
+                        <td className="px-5 py-4">
+                          <div className="font-medium">
+                            {assignment.center.displayName}
+                          </div>
+
+                          <div className="mt-1 text-sm text-neutral-500">
+                            Center {assignment.center.centerNumber}
+                          </div>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          {assignment.department?.name ?? "Unassigned"}
+                        </td>
+
+                        <td className="px-5 py-4 text-neutral-300">
+                          {formatDisplayDate(
+                            assignment.startDate
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4 text-neutral-300">
+                          {formatDisplayDate(
+                            assignment.endDate
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          {assignment.isPrimary
+                            ? "Yes"
+                            : "No"}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${
+                              assignment.isActive
+                                ? "bg-green-950 text-green-300"
+                                : "bg-neutral-800 text-neutral-400"
+                            }`}
+                          >
+                            {assignment.isActive
+                              ? "Active"
+                              : "Historical"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          <h2 className="text-2xl font-semibold">
+            Workforce Relationships
+          </h2>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
+              <p className="text-sm text-neutral-500">
+                Assignments
+              </p>
+
+              <p className="mt-2 text-3xl font-bold">
+                {worker._count.assignments}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
+              <p className="text-sm text-neutral-500">
+                Roles
+              </p>
+
+              <p className="mt-2 text-3xl font-bold">
+                {worker._count.roles}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-5">
+              <p className="text-sm text-neutral-500">
+                Capabilities
+              </p>
+
+              <p className="mt-2 text-3xl font-bold">
+                {worker._count.capabilities}
+              </p>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
           <h2 className="text-2xl font-semibold">
