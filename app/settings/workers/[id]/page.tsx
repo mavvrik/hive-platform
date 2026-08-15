@@ -13,6 +13,13 @@ import {
   makeAssignmentPrimary,
 } from "./assignments/actions";
 
+import {
+  assignWorkerCapability,
+  assignWorkerRole,
+  removeWorkerCapability,
+  removeWorkerRole,
+} from "./relationships/actions";
+
 type PageProps = {
   params: Promise<{
     id: string;
@@ -52,57 +59,105 @@ export default async function EditWorkerPage({
 }: PageProps) {
   const { id } = await params;
 
-  const [worker, centers] =
-    await Promise.all([
-      prisma.worker.findUnique({
-        where: {
-          id,
-        },
-        include: {
-          homeCenter: true,
+  const [
+    worker,
+    centers,
+    activeRoles,
+    activeCapabilities,
+  ] = await Promise.all([
+    prisma.worker.findUnique({
+      where: {
+        id,
+      },
 
-          assignments: {
-            include: {
-              center: true,
-              department: true,
-            },
-            orderBy: [
-              {
-                isActive: "desc",
-              },
-              {
-                isPrimary: "desc",
-              },
-              {
-                startDate: "desc",
-              },
-            ],
+      include: {
+        homeCenter: true,
+
+        assignments: {
+          include: {
+            center: true,
+            department: true,
           },
 
-          _count: {
-            select: {
-              assignments: true,
-              roles: true,
-              capabilities: true,
+          orderBy: [
+            {
+              isActive: "desc",
             },
+            {
+              isPrimary: "desc",
+            },
+            {
+              startDate: "desc",
+            },
+          ],
+        },
+
+        roles: {
+          include: {
+            role: true,
+          },
+
+          orderBy: {
+            createdAt: "asc",
           },
         },
-      }),
 
-      prisma.center.findMany({
-        where: {
-          isActive: true,
+        capabilities: {
+          include: {
+            capability: true,
+          },
+
+          orderBy: {
+            createdAt: "asc",
+          },
         },
-        select: {
-          id: true,
-          centerNumber: true,
-          displayName: true,
+
+        _count: {
+          select: {
+            assignments: true,
+            roles: true,
+            capabilities: true,
+          },
         },
-        orderBy: {
-          centerNumber: "asc",
-        },
-      }),
-    ]);
+      },
+    }),
+
+    prisma.center.findMany({
+      where: {
+        isActive: true,
+      },
+
+      select: {
+        id: true,
+        centerNumber: true,
+        displayName: true,
+      },
+
+      orderBy: {
+        centerNumber: "asc",
+      },
+    }),
+
+    prisma.role.findMany({
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        name: "asc",
+      },
+    }),
+
+    prisma.capability.findMany({
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        name: "asc",
+      },
+    }),
+  ]);
 
   if (!worker) {
     notFound();
@@ -115,10 +170,38 @@ export default async function EditWorkerPage({
         assignment.isPrimary
     );
 
+  const assignedRoleIds = new Set(
+    worker.roles.map(
+      (workerRole) =>
+        workerRole.roleId
+    )
+  );
+
+  const assignedCapabilityIds =
+    new Set(
+      worker.capabilities.map(
+        (workerCapability) =>
+          workerCapability.capabilityId
+      )
+    );
+
+  const availableRoles =
+    activeRoles.filter(
+      (role) =>
+        !assignedRoleIds.has(role.id)
+    );
+
+  const availableCapabilities =
+    activeCapabilities.filter(
+      (capability) =>
+        !assignedCapabilityIds.has(
+          capability.id
+        )
+    );
+
   return (
     <main className="min-h-screen bg-neutral-950 p-8 text-white">
       <div className="mx-auto max-w-6xl">
-
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <Link
@@ -137,7 +220,8 @@ export default async function EditWorkerPage({
             </h1>
 
             <p className="mt-2 text-neutral-400">
-              Home Center {worker.homeCenter.centerNumber} —{" "}
+              Home Center{" "}
+              {worker.homeCenter.centerNumber} —{" "}
               {worker.homeCenter.displayName}
             </p>
           </div>
@@ -154,6 +238,10 @@ export default async function EditWorkerPage({
               : "Inactive"}
           </span>
         </div>
+
+        {/* ==============================================
+            WORKER IDENTITY
+        ============================================== */}
 
         <form
           action={updateWorker}
@@ -179,7 +267,9 @@ export default async function EditWorkerPage({
                 <input
                   name="firstName"
                   required
-                  defaultValue={worker.firstName}
+                  defaultValue={
+                    worker.firstName
+                  }
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -192,7 +282,9 @@ export default async function EditWorkerPage({
                 <input
                   name="lastName"
                   required
-                  defaultValue={worker.lastName}
+                  defaultValue={
+                    worker.lastName
+                  }
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -204,7 +296,9 @@ export default async function EditWorkerPage({
 
                 <input
                   name="employeeId"
-                  defaultValue={worker.employeeId ?? ""}
+                  defaultValue={
+                    worker.employeeId ?? ""
+                  }
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -217,7 +311,9 @@ export default async function EditWorkerPage({
                 <input
                   name="email"
                   type="email"
-                  defaultValue={worker.email ?? ""}
+                  defaultValue={
+                    worker.email ?? ""
+                  }
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
@@ -245,12 +341,18 @@ export default async function EditWorkerPage({
                 <input
                   name="photoUrl"
                   type="url"
-                  defaultValue={worker.photoUrl ?? ""}
+                  defaultValue={
+                    worker.photoUrl ?? ""
+                  }
                   className="w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
                 />
               </div>
             </div>
           </section>
+
+          {/* ==============================================
+              HOME CENTER
+          ============================================== */}
 
           <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
             <h2 className="text-2xl font-semibold">
@@ -260,7 +362,9 @@ export default async function EditWorkerPage({
             <select
               name="homeCenterId"
               required
-              defaultValue={worker.homeCenterId}
+              defaultValue={
+                worker.homeCenterId
+              }
               className="mt-6 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
             >
               {centers.map((center) => (
@@ -268,13 +372,15 @@ export default async function EditWorkerPage({
                   key={center.id}
                   value={center.id}
                 >
-                  {center.centerNumber} — {center.displayName}
+                  {center.centerNumber} —{" "}
+                  {center.displayName}
                 </option>
               ))}
             </select>
 
             <p className="mt-2 text-sm text-neutral-500">
-              Home Center remains separate from operational assignment
+              Home Center remains separate
+              from operational assignment
               history.
             </p>
           </section>
@@ -296,6 +402,357 @@ export default async function EditWorkerPage({
           </div>
         </form>
 
+        {/* ==============================================
+            ROLES
+        ============================================== */}
+
+        <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          <div>
+            <p className="text-sm uppercase tracking-[0.18em] text-amber-400">
+              Responsibility
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold">
+              Roles
+            </h2>
+
+            <p className="mt-2 text-neutral-400">
+              Roles describe the worker&apos;s
+              responsibility or authority.
+              They do not automatically imply
+              operational capability.
+            </p>
+          </div>
+
+          {worker.roles.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950 p-6">
+              <p className="text-neutral-400">
+                No roles assigned.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-3">
+              {worker.roles.map(
+                (workerRole) => (
+                  <div
+                    key={workerRole.id}
+                    className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-950 p-5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">
+                          {
+                            workerRole
+                              .role.name
+                          }
+                        </p>
+
+                        {!workerRole.role
+                          .isActive && (
+                          <span className="rounded-full bg-neutral-800 px-2 py-1 text-xs text-neutral-400">
+                            Inactive Role
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-sm text-neutral-500">
+                        {
+                          workerRole
+                            .role.key
+                        }
+                      </p>
+
+                      {workerRole.role
+                        .description && (
+                        <p className="mt-2 text-sm text-neutral-400">
+                          {
+                            workerRole
+                              .role
+                              .description
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <form
+                      action={
+                        removeWorkerRole
+                      }
+                    >
+                      <input
+                        type="hidden"
+                        name="workerId"
+                        value={worker.id}
+                      />
+
+                      <input
+                        type="hidden"
+                        name="roleId"
+                        value={
+                          workerRole.roleId
+                        }
+                      />
+
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-red-950 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-900"
+                      >
+                        Remove
+                      </button>
+                    </form>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {worker.isActive && (
+            <div className="mt-6 border-t border-neutral-800 pt-6">
+              <h3 className="font-semibold">
+                Assign Role
+              </h3>
+
+              {availableRoles.length ===
+              0 ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                  All active roles are
+                  already assigned to this
+                  worker.
+                </p>
+              ) : (
+                <form
+                  action={
+                    assignWorkerRole
+                  }
+                  className="mt-4 flex flex-col gap-3 sm:flex-row"
+                >
+                  <input
+                    type="hidden"
+                    name="workerId"
+                    value={worker.id}
+                  />
+
+                  <select
+                    name="roleId"
+                    required
+                    defaultValue=""
+                    className="flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
+                  >
+                    <option
+                      value=""
+                      disabled
+                    >
+                      Select a role
+                    </option>
+
+                    {availableRoles.map(
+                      (role) => (
+                        <option
+                          key={role.id}
+                          value={role.id}
+                        >
+                          {role.name}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-amber-400 px-5 py-3 font-semibold text-black hover:bg-amber-300"
+                  >
+                    Assign Role
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ==============================================
+            CAPABILITIES
+        ============================================== */}
+
+        <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
+          <div>
+            <p className="text-sm uppercase tracking-[0.18em] text-amber-400">
+              Qualification
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold">
+              Capabilities
+            </h2>
+
+            <p className="mt-2 text-neutral-400">
+              Capabilities describe the
+              operational functions this
+              worker is trained or qualified
+              to perform.
+            </p>
+          </div>
+
+          {worker.capabilities.length ===
+          0 ? (
+            <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950 p-6">
+              <p className="text-neutral-400">
+                No capabilities assigned.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {worker.capabilities.map(
+                (workerCapability) => (
+                  <div
+                    key={
+                      workerCapability.id
+                    }
+                    className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-800 bg-neutral-950 p-5"
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold">
+                          {
+                            workerCapability
+                              .capability
+                              .name
+                          }
+                        </p>
+
+                        {!workerCapability
+                          .capability
+                          .isActive && (
+                          <span className="rounded-full bg-neutral-800 px-2 py-1 text-xs text-neutral-400">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-sm text-neutral-500">
+                        {
+                          workerCapability
+                            .capability.key
+                        }
+                      </p>
+
+                      {workerCapability
+                        .capability
+                        .description && (
+                        <p className="mt-2 text-sm text-neutral-400">
+                          {
+                            workerCapability
+                              .capability
+                              .description
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <form
+                      action={
+                        removeWorkerCapability
+                      }
+                    >
+                      <input
+                        type="hidden"
+                        name="workerId"
+                        value={worker.id}
+                      />
+
+                      <input
+                        type="hidden"
+                        name="capabilityId"
+                        value={
+                          workerCapability
+                            .capabilityId
+                        }
+                      />
+
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-red-950 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-900"
+                      >
+                        Remove Capability
+                      </button>
+                    </form>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+
+          {worker.isActive && (
+            <div className="mt-6 border-t border-neutral-800 pt-6">
+              <h3 className="font-semibold">
+                Assign Capability
+              </h3>
+
+              {availableCapabilities.length ===
+              0 ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                  All active capabilities are
+                  already assigned to this
+                  worker.
+                </p>
+              ) : (
+                <form
+                  action={
+                    assignWorkerCapability
+                  }
+                  className="mt-4 flex flex-col gap-3 sm:flex-row"
+                >
+                  <input
+                    type="hidden"
+                    name="workerId"
+                    value={worker.id}
+                  />
+
+                  <select
+                    name="capabilityId"
+                    required
+                    defaultValue=""
+                    className="flex-1 rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3"
+                  >
+                    <option
+                      value=""
+                      disabled
+                    >
+                      Select a capability
+                    </option>
+
+                    {availableCapabilities.map(
+                      (capability) => (
+                        <option
+                          key={
+                            capability.id
+                          }
+                          value={
+                            capability.id
+                          }
+                        >
+                          {
+                            capability.name
+                          }
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-amber-400 px-5 py-3 font-semibold text-black hover:bg-amber-300"
+                  >
+                    Assign Capability
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ==============================================
+            ASSIGNMENT HISTORY
+        ============================================== */}
+
         <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -304,7 +761,8 @@ export default async function EditWorkerPage({
               </h2>
 
               <p className="mt-2 text-neutral-400">
-                Active assignments and preserved historical records.
+                Active assignments and
+                preserved historical records.
               </p>
             </div>
 
@@ -329,7 +787,8 @@ export default async function EditWorkerPage({
             )}
           </div>
 
-          {worker.assignments.length === 0 ? (
+          {worker.assignments.length ===
+          0 ? (
             <div className="mt-6 rounded-xl border border-neutral-800 bg-neutral-950 p-8 text-center">
               No assignment history.
             </div>
@@ -345,8 +804,17 @@ export default async function EditWorkerPage({
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-lg font-semibold">
-                            {assignment.center.centerNumber} —{" "}
-                            {assignment.center.displayName}
+                            {
+                              assignment
+                                .center
+                                .centerNumber
+                            }{" "}
+                            —{" "}
+                            {
+                              assignment
+                                .center
+                                .displayName
+                            }
                           </p>
 
                           {assignment.isPrimary && (
@@ -369,7 +837,9 @@ export default async function EditWorkerPage({
                         </div>
 
                         <p className="mt-2 text-neutral-300">
-                          {assignment.department?.name ??
+                          {assignment
+                            .department
+                            ?.name ??
                             "No Department"}
                         </p>
 
@@ -395,13 +865,17 @@ export default async function EditWorkerPage({
                               <input
                                 type="hidden"
                                 name="workerId"
-                                value={worker.id}
+                                value={
+                                  worker.id
+                                }
                               />
 
                               <input
                                 type="hidden"
                                 name="assignmentId"
-                                value={assignment.id}
+                                value={
+                                  assignment.id
+                                }
                               />
 
                               <button
@@ -414,19 +888,25 @@ export default async function EditWorkerPage({
                           )}
 
                           <form
-                            action={endAssignment}
+                            action={
+                              endAssignment
+                            }
                             className="flex gap-2"
                           >
                             <input
                               type="hidden"
                               name="workerId"
-                              value={worker.id}
+                              value={
+                                worker.id
+                              }
                             />
 
                             <input
                               type="hidden"
                               name="assignmentId"
-                              value={assignment.id}
+                              value={
+                                assignment.id
+                              }
                             />
 
                             <input
@@ -454,6 +934,10 @@ export default async function EditWorkerPage({
           )}
         </section>
 
+        {/* ==============================================
+            WORKFORCE SUMMARY
+        ============================================== */}
+
         <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
           <h2 className="text-2xl font-semibold">
             Workforce Relationships
@@ -466,7 +950,10 @@ export default async function EditWorkerPage({
               </p>
 
               <p className="mt-2 text-3xl font-bold">
-                {worker._count.assignments}
+                {
+                  worker._count
+                    .assignments
+                }
               </p>
             </div>
 
@@ -486,16 +973,30 @@ export default async function EditWorkerPage({
               </p>
 
               <p className="mt-2 text-3xl font-bold">
-                {worker._count.capabilities}
+                {
+                  worker._count
+                    .capabilities
+                }
               </p>
             </div>
           </div>
         </section>
 
+        {/* ==============================================
+            WORKER STATUS
+        ============================================== */}
+
         <section className="mt-10 rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
           <h2 className="text-2xl font-semibold">
             Worker Status
           </h2>
+
+          <p className="mt-2 text-neutral-400">
+            Inactive workers retain their
+            historical workforce records but
+            cannot receive new roles,
+            capabilities, or assignments.
+          </p>
 
           <form
             action={toggleWorkerStatus}
